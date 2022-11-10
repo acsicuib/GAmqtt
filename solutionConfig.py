@@ -6,9 +6,9 @@ Created on Tue Oct  4 13:56:31 2022
 @author: carlos
 """
 
-numberOfNodes = 15
+numberOfNodes = 100
 numberOfServices = 4
 
 objectivesFunctions = list()
-objectivesFunctions.append(('obj1','self.meanNumberOfInstances()'))
-objectivesFunctions.append(('obj2','self.meanEdgeDistance()'))
+objectivesFunctions.append(('Number of instances','self.meanNumberOfInstances()'))
+objectivesFunctions.append(('Mean distance to clients','self.meanEdgeDistance()'))

@@ -7,6 +7,8 @@ Created on Fri Oct  7 18:41:41 2022
 """
 
 import os
+import typing
+import pickle
 
 
 class Log:
@@ -17,35 +19,50 @@ class Log:
     logLevels4Screen = ['coordinator','worker','dump-population']
     logLevels4File = ['coordinator','worker','dump-population']
 
-    def __init__(self,logname,messageHeader):
+    frontsFileName='fronts.pkl'
+
+    def __init__(self,logname: str, messageHeader: str, executionId: str) -> None:
         self.logname = logname
         self.messageHeader = messageHeader
-        if not os.path.exists('./logs/'):
-            os.mkdir('./logs/')
+        self.executionId = executionId
+        self.logPath = './logs/'+self.executionId+'/'
+        self.resultsPath = './results/'+self.executionId+'/'
+        if not os.path.exists(self.logPath):
+            os.mkdir(self.logPath)
 
 
-    def printf(self,str,f,level=None):
+    def printf(self, str2Print: str, f: typing.TextIO, level: str = None) -> None:
         if level == None or level in self.logLevels4File:
-            f.write(self.messageHeader + str + '\n')
+            f.write(self.messageHeader + str2Print + '\n')
         if level == None or level in self.logLevels4Screen:
-            print(self.messageHeader + str)
+            print(self.messageHeader + str2Print)
 
-    def print(self,str,level=None):
+    def print(self, str2Print: str,level: str = None) -> None:
 
         if level==None or level in self.logLevels4File:
-            f = open ('./logs/'+self.logname+'.txt','w')
-            f.write(self.messageHeader+str+'\n')
+            f = open (self.logPath+self.logname+'.txt','a')
+            f.write(self.messageHeader+str2Print+'\n')
             f.close()
         if level==None or level in self.logLevels4Screen:
-            print(self.messageHeader+str)
+            print(self.messageHeader+str2Print)
 
 
-    def dumpFronts(self,fronts,level=None):
-        f = open('./logs/' + self.logname + '.txt', 'w')
+    def dumpData(self,strData: str, level: str = None) -> None:
+        f = open(self.logPath + self.logname + '.txt', 'a')
+        self.printf(strData, f, level)
+        f.close()
 
-        for i,front in enumerate(fronts):
-            self.printf('FRONT NUMBER: '+str(i),f,level)
-            for element in front:
-                self.print('---- fitness: '+str(element[0]['solution'].fitness)+'\t\tcrowding distance: '+str(element[1]),level)
 
+    def initializeDumpFronts(self) -> None:
+        if not os.path.exists(self.resultsPath):
+            os.mkdir(self.resultsPath)
+        list2store = []
+        with open(self.resultsPath + self.frontsFileName, 'wb') as f:
+            [pickle.dump(elementList, f) for elementList in list2store]
+        f.close()
+
+    def dumpFronts(self,step: int, fronts2Store: list, distInWorkers: dict) -> None:
+        #TODO   https://stackoverflow.com/questions/28077573/python-appending-to-a-pickled-list
+        with open(self.resultsPath + self.frontsFileName, 'ab') as f:
+            pickle.dump((step, fronts2Store, distInWorkers), f)
         f.close()

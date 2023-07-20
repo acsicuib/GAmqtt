@@ -7,7 +7,8 @@ Created on Tue Oct  4 13:56:31 2022
 """
 
 numberOfNodes = 100
-numberOfServices = 4
+#numberOfServices = 4
+numberOfServices = 10
 
 objectivesFunctions = list()
 objectivesFunctions.append(('Number of instances','self.meanNumberOfInstances()'))

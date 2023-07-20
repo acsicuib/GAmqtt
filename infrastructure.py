@@ -84,14 +84,14 @@ class Infrastructure:
 
         #centralityValuesNoOrdered = nx.betweenness_centrality(G,weight="weight",seed=2022)
         centralityValuesNoOrdered = nx.betweenness_centrality(self.G,weight="weight",seed=self.myRnd)
-        centralityValues=sorted(centralityValuesNoOrdered.items(), key=operator.itemgetter(1), reverse=True)
+        self.centralityValues=sorted(centralityValuesNoOrdered.items(), key=operator.itemgetter(1), reverse=True)
 
         self.gatewaysDevices = set()
         self.cloudgatewaysDevices = set()
 
-        highestCentrality = centralityValues[0][1]
+        highestCentrality = self.centralityValues[0][1]
 
-        for device in centralityValues:
+        for device in self.centralityValues:
             if device[1]==highestCentrality:
                 self.cloudgatewaysDevices.add(device[0])
 
@@ -100,8 +100,8 @@ class Infrastructure:
         #number of devices at the end of the list
         initialIndx = int((1-self.PERCENTATGEOFGATEWAYS)*len(self.G.nodes))  #Indice del final para los X tanto por ciento nodos
 
-        for idDev in range(initialIndx,len(self.G.nodes)):
-            self.gatewaysDevices.add(centralityValues[idDev][0])
+        for orderDev in range(initialIndx,len(self.G.nodes)):
+            self.gatewaysDevices.add(self.centralityValues[orderDev][0])
 
         #the cloud node is generated and connected to all the fog devices with the highest centrality values.
         self.cloudId = len(self.G.nodes)
@@ -138,7 +138,7 @@ class Infrastructure:
             file.write(json.dumps(netJson))
             file.close()
 
-    def setConfiguration(self,nameInfr: str, numNodes: int = None, numServices: int = None, netGenerator: str = None) -> None:
+    def  setConfiguration(self,nameInfr: str, numNodes: int = None, numServices: int = None, netGenerator: str = None) -> None:
 
         if nameInfr == 'newage':
 
@@ -150,7 +150,8 @@ class Infrastructure:
 
             #NETWORK
             self.PERCENTATGEOFGATEWAYS = 0.25
-            self.TOTALNUMBEROFNODES = 17
+            #self.TOTALNUMBEROFNODES = 17
+            self.TOTALNUMBEROFNODES = 100
             self.func_PROPAGATIONTIME = "self.myRnd.randint(1,5)" #MS
             self.func_BANDWITDH = "self.myRnd.randint(50000,75000)" # BYTES / MS
             #func_NETWORKGENERATION = "nx.barabasi_albert_graph(seed=2022,n="+str(TOTALNUMBEROFNODES)+", m=2)" #algorithm for the generation of the network topology
@@ -380,6 +381,13 @@ class Infrastructure:
         for i in dist_:
             distances[i[0]] = i[1]
         return distances
+
+    def get_ithSmallestCentralityDevice(self, order: int) -> int:
+        posDev_reverse = order * (-1)
+        return self.centralityValues[posDev_reverse][0]
+
+    def getCloudId(self) -> int:
+        return self.centralityValues[0][0]
 
 
 if __name__ == '__main__':

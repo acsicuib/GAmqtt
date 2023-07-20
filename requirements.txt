@@ -1,4 +1,4 @@
 paho-mqtt==1.1
-networkx
-numpy
-matplotlib
+networkx==2.8.7
+numpy==1.23.4
+matplotlib==3.6.2

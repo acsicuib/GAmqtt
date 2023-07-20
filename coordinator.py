@@ -6,6 +6,10 @@ Created on Mon Oct  3 09:18:21 2022
 @author: carlos
 
 
+source venv/bin/activate
+pip freeze
+deactivate
+
 import timeit
 timeit.timeit('[]', number=10**4)
 timeit.timeit('list()', number=10**4)
@@ -55,10 +59,15 @@ import os
 import experimentationConfig
 
 
+def nodesDistance(a:int, b:int) -> float:
+    return optProblem.infrastructure4mqttJson['Gdistances'][a][b]
+
+
 #actions to perform when arrives the message command/join	{id: <str>}          worker -->coordinator 
 #a new worker notify the coordinator that it started. we include the worker in the list of workers and coordinator send the solution template to the worker
 def joinClient(jConf: bytes) -> None:
     global listOfWorkers
+    global mappingWorker2Node
     global optProblem
     global thisRepetition
     
@@ -67,6 +76,7 @@ def joinClient(jConf: bytes) -> None:
     workerId = jsonContent['workerId']
     workerIdStr = str(workerId)
     listOfWorkers.append(workerId)
+    mappingWorker2Node[workerId] = optProblem.getInfrastructure().get_ithSmallestCentralityDevice(len(listOfWorkers))
     
     #the message command/nodeX/solutionTemplate	{solutionQuantity: <int>, solutionConfig: <dict>}		coordinator  --> worker(nodeX) 
     #is published to notify to inform the worker of the solution template and number of solutions
@@ -75,6 +85,8 @@ def joinClient(jConf: bytes) -> None:
     dictPayload['solutionConfig']=optProblem.solutionTemplate
     dictPayload['infrastructure'] = optProblem.infrastructure4mqttJson
     dictPayload['randomseed'] = len(listOfWorkers) * optimizationConfig.randomSeed4Optimization[thisRepetition]
+    dictPayload['simulatedNode'] = mappingWorker2Node[workerId]
+    dictPayload['cloudNode'] = optProblem.getInfrastructure().getCloudId()
     #dictPayload['infrastructure']=dict()
     #dictPayload['infrastructure']['Gdistances']=optProblem.infrastructure['Gdistances']
     #dictPayload['infrastructure']['clientNodes'] = optProblem.infrastructure['clientNodes']
@@ -118,6 +130,10 @@ def newWorkerPopulationTopic(jConf: bytes) -> None:
 def newWorkerChildrenTopic(jConf: bytes) -> None:
     global solEvolved
     global listOfWorkers
+    global totalPathLengthIslands
+    global totalPathLengthCentralizedFront
+    global mappingWorker2Node
+    global optProblem
 
     log.print("COORDINATOR-"+coordinatorIdStr+":::including new children from a worker",'operation')
     jsonContent = json.loads(jConf)
@@ -130,7 +146,7 @@ def newWorkerChildrenTopic(jConf: bytes) -> None:
     #from the population the same number of solutions that have been incorporated. The solutions removed from
     #the fronts and the population are retorned in toRemove
 
-    
+    distancesOfRemoveSolutionMessages = 0.0
     log.print("COORDINATOR-"+coordinatorIdStr+":::going to remove "+str(toRemove),'operation-details')
     for sol in toRemove:
         #the message command/nodeX/removeSolutions {solIds:[<int>...<int>]}			coordinator-->worker(nodeY)
@@ -143,9 +159,21 @@ def newWorkerChildrenTopic(jConf: bytes) -> None:
         log.print("COORDINATOR-"+coordinatorIdStr+":::with topic "+"command/"+workerIdWithTheSolution+"/removeSolutions",'operation-details')
         log.print("COORDINATOR-"+coordinatorIdStr+":::with payload "+json.dumps(dictPayload),'operation-details')
         publish.single(topic="command/"+workerIdWithTheSolution+"/removeSolutions", payload=json.dumps(dictPayload), hostname=mqtt_host)
+        distancesOfRemoveSolutionMessages += nodesDistance(optProblem.getInfrastructure().getCloudId(), mappingWorker2Node[workerIdWithTheSolution])
 
-    print(optProblem.getSolutionSpace().serializeFronts())
-    print(optProblem.getSolutionSpace().getSolDistributionInWorkers())
+    #TODO pensar como incluir el tamanyo del mensaje que se envia en la metrica qeu mida la distancia de red
+
+    pathLengthIslands = float(jsonContent['pathLengthIslands']) + distancesOfRemoveSolutionMessages
+    pathLengthCentralizedFront = float(jsonContent['pathLengthCentralizedFront']) + distancesOfRemoveSolutionMessages
+    totalPathLengthIslands.append(pathLengthIslands)
+    totalPathLengthCentralizedFront.append(pathLengthCentralizedFront)
+
+    log.dumpPathLength('pathLengthIslands.pkl',pathLengthIslands)
+    log.dumpPathLength('pathLengthCentralizedFront.pkl',pathLengthCentralizedFront)
+
+
+    log.print("COORDINATOR-"+str(optProblem.getSolutionSpace().serializeFronts()),'dump-population')
+    log.print("COORDINATOR-"+str(optProblem.getSolutionSpace().getSolDistributionInWorkers()),'dump-population')
     if (solEvolved % (len(listOfWorkers)*optimizationConfig.numberOfSolutionsInWorkers)) == 0:
         log.dumpFronts(solEvolved,optProblem.getSolutionSpace().getFitnessInFronts2List(),optProblem.getSolutionSpace().getSolDistributionInWorkers())
 
@@ -182,7 +210,8 @@ def on_message(mosq: paho.Client, obj, msg: paho.MQTTMessage) -> None:
 
     proMsg = threading.Thread(target=process_message,args=[mosq, obj, msg])
     proMsg.start()
-    time.sleep(0.05)
+    if experimentationConfig.time2SleepInCoordinator > 0.0:
+        time.sleep(experimentationConfig.time2SleepInCoordinator)
     #mosq.publish('pong', 'ack', 0)
 
 #call back functon when a message is sent
@@ -192,6 +221,7 @@ def on_publish(mosq, obj, mid):
 def checkFinishCondition() -> bool:
     global solEvolved
     global listOfWorkers
+    global mappingWorker2Node
 
     if solEvolved > (optimizationConfig.numberOfGenerations * optimizationConfig.numberOfSolutionsInWorkers * len(listOfWorkers)):
         return True
@@ -205,6 +235,12 @@ if __name__ == '__main__':
         i = 0  # counter for the number of messages
         solEvolved = 0 #counter for the number of evolved solutions
         listOfWorkers = list()  # list of all the workers in the system
+        mappingWorker2Node = dict()
+
+        #initialization of variables to study the performance of the experiments
+
+        totalPathLengthIslands = list()
+        totalPathLengthCentralizedFront = list()
 
         #stablish connection to mosquitto server
         client = paho.Client()
@@ -225,6 +261,8 @@ if __name__ == '__main__':
 
         log.print("coordinator started for repetition: "+str(repetition)+" and scenario "+experimentationConfig.executionScenario,'coordinator')
         log.initializeDumpFronts()
+        log.initializeDumpPathLength('pathLengthIslands.pkl')
+        log.initializeDumpPathLength('pathLengthCentralizedFront.pkl')
 
         #defining the listh of topic the client is subscribed to
         client.subscribe("command/join", 0)
@@ -250,7 +288,7 @@ if __name__ == '__main__':
         if finishCondition:
             sendFinishOptimization()
             log.print("waiting for all workers finishing...", 'coordinator')
-            time.sleep(20)
+            time.sleep(experimentationConfig.time2Sleep2Finish)
 
         client.disconnect()  # disconnect gracefully
         client.loop_stop()  # stops network loop

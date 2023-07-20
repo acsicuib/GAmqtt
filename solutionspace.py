@@ -122,6 +122,24 @@ class SolutionSpace:
                                           0)  # recalculate pareto fronts for all the new solutions
 
 
+    '''
+    Created for the case of the FullMigration scenario (population distributed along workers). It is required because
+    a central copy of the solutions in the workers is required for analysis of the experiments porpouse. Not really
+    need to implement the framework, just for experimentation
+    '''
+    def createSolutionWithInputAndAggregateWithCurrentPopulationWithoutClassifyingFronts(self, workerId: str, solSet: List[dict]) -> None:
+        for sol in solSet:
+            newSol = Solution(self.randomNG)
+            newSol.setFitness(sol['fitness'])
+            newPopulationElement = PopulationElement(workerId,sol['id'],newSol)
+            #newSolutionElement['workerId'] = workerId
+            #newSolutionElement['solutionId'] = sol['id']
+            #newSolutionElement['solution'] = newSol
+            self.population.append(newPopulationElement)
+            if len(self.fronts)==0:
+                front0 = list()
+                self.fronts.append(front0)
+            self.fronts[0].append(newPopulationElement)
 
 
     def joinToThePopulation(self,offspring: List[PopulationElement]) -> None:
@@ -334,7 +352,12 @@ class SolutionSpace:
     def getRandomSolutions(self,numberOfSolutions: int) -> List[PopulationElement]:
         #idsList = random.sample(range(0, len(self.population)),
         #                                               numberOfSolutions)  # two solution are randomly selected
-        idsList = self.randomNG.choice(len(self.population), numberOfSolutions, replace=False).tolist()
+        if (numberOfSolutions>len(self.population)):
+            idsList = self.randomNG.choice(len(self.population), numberOfSolutions, replace=True).tolist()
+            #we need to select more solutions than the number of solutions in the population, thus
+            # replace is equal True in order to allow the repetition of a same solution in the list of selected solutions
+        else:
+            idsList = self.randomNG.choice(len(self.population), numberOfSolutions, replace=False).tolist()
         solutionList = list()
         for i in idsList:
             solutionList.append(self.population[i])
@@ -463,12 +486,23 @@ class SolutionSpace:
         totalValues['front']=dict(distributionOfCountValues)
         totalValues['pareto']=dict(distributionOfCountValuesPareto)
 
-        print(totalValues)
+        #print(totalValues)
         return totalValues
 
 
 
-
+    def serializeFrontsWithoutCrowding(self) -> str:
+        returnedStr  = ''
+        for i, front in enumerate(self.fronts):
+            returnedStr += 'FRONT NUMBER: ' + str(i) + '\n'
+            for fe in front:
+                theFitness = fe.getSolution().getFitness()
+                #theCrowdingDistance = fe.getCrowding()
+                theCrowdingDistance = None
+                theSolId = fe.getSolutionId()
+                theWorkerId = fe.getWorkerId()
+                returnedStr  += '---- fitness('+str(theWorkerId)+'-'+str(theSolId)+'): ' + str(theFitness) + '\t\tcrowding distance: ' + str(theCrowdingDistance) + '\n'
+        return returnedStr
 
     def serializeFronts(self) -> str:
         returnedStr  = ''

@@ -9,6 +9,7 @@ Created on Fri Oct  7 18:41:41 2022
 import os
 import typing
 import pickle
+import time
 
 
 class Log:
@@ -17,6 +18,7 @@ class Log:
     logLevels4File = ['testing','coordinator','operation','operation-details','mqtt-details','worker','dump-population']
     logLevels4Screen = ['testing','coordinator','operation','operation-details','mqtt-details','worker','dump-population']
     logLevels4Screen = ['coordinator','worker','dump-population']
+    logLevels4Screen = ['coordinator', 'worker']
     logLevels4File = ['coordinator','worker','dump-population']
 
     frontsFileName='fronts.pkl'
@@ -39,12 +41,15 @@ class Log:
 
     def print(self, str2Print: str,level: str = None) -> None:
 
+        t = time.localtime()
+        current_time = time.strftime("%H:%M:%S", t)
+
         if level==None or level in self.logLevels4File:
             f = open (self.logPath+self.logname+'.txt','a')
             f.write(self.messageHeader+str2Print+'\n')
             f.close()
         if level==None or level in self.logLevels4Screen:
-            print(self.messageHeader+str2Print)
+            print(self.messageHeader+str2Print, flush=True)
 
 
     def dumpData(self,strData: str, level: str = None) -> None:
@@ -65,4 +70,21 @@ class Log:
         #TODO   https://stackoverflow.com/questions/28077573/python-appending-to-a-pickled-list
         with open(self.resultsPath + self.frontsFileName, 'ab') as f:
             pickle.dump((step, fronts2Store, distInWorkers), f)
+        f.close()
+
+    def initializeDumpPathLength(self, fn: str) -> None:
+        if not os.path.exists(self.resultsPath):
+            os.mkdir(self.resultsPath)
+        list2store = []
+        with open(self.resultsPath + fn, 'wb') as f:
+            [pickle.dump(elementList, f) for elementList in list2store]
+        f.close()
+
+    def copyConfigurationFiles(self,fnList:list) -> None:
+        for fn in fnList:
+            os.system("cp "+fn + " "+ self.resultsPath)
+
+    def dumpPathLength(self, fn: str, value2append: float) -> None:
+        with open(self.resultsPath + fn, 'ab') as f:
+            pickle.dump(value2append, f)
         f.close()

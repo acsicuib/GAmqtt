@@ -11,7 +11,6 @@ import solutionConfig as solCnf
 import optimizationConfig as optCnf
 from solution import Solution
 import random
-import domainConfiguration
 import networkx as nx
 from solutionspace import SolutionSpace
 from solutionspace import PopulationElement
@@ -49,7 +48,9 @@ class OptimizationProblem:
         
 
 
-        
+    def selectRandomWorker(self, listworker: list) -> str:
+        return listworker[self.randomNG.randint(len(listworker))]
+
     def initCoordinator(self) -> None:
         solTempl=dict()
         solTempl['numberOfNodes']=solCnf.numberOfNodes
@@ -61,7 +62,8 @@ class OptimizationProblem:
 
         self.deployedInfr = Infrastructure()
         netGeneratorStr = "nx.barabasi_albert_graph(n="+str(solCnf.numberOfNodes)+", m=2)"
-        self.deployedInfr.setConfiguration('newage',solCnf.numberOfNodes,solCnf.numberOfServices,netGeneratorStr)
+        #self.deployedInfr.setConfiguration('newage', solCnf.numberOfNodes, solCnf.numberOfServices, netGeneratorStr)
+        self.deployedInfr.setConfiguration('journal',solCnf.numberOfNodes,solCnf.numberOfServices,netGeneratorStr)
         self.deployedInfr.deployScenario(False)
 
         # domainConfiguration.initializeRandom(optCnf.randomSeeds)
@@ -106,8 +108,18 @@ class OptimizationProblem:
     The current population is joined with the solutions received from the workers. This solutions only have the fitnes
     so new solutions elements are created and append to the population
     '''
-    def joinToPopulation(self,workerId: str,solSet: List[dict]) -> None:
+    def joinToPopulation(self, workerId: str,solSet: List[dict]) -> None:
         self.solutionSpace.createSolutionWithInputAndJoinWithCurrentPopulation(workerId,solSet)
+
+
+    '''
+    Created for the case of the FullMigration scenario (population distributed along workers). It is required because
+    a central copy of the solutions in the workers is required for analysis of the experiments porpouse. Not really
+    need to implement the framework, just for experimentation
+    '''
+    def joinToPopulationWithoutFronts(self, workerId: str,solSet: List[dict]) -> None:
+        self.solutionSpace.createSolutionWithInputAndAggregateWithCurrentPopulationWithoutClassifyingFronts(workerId,solSet)
+
 
     def removeManyWorstSolutions(self, quantity: int) -> List[PopulationElement]:
         return self.solutionSpace.removeSetOfWorstSolutions(quantity)
@@ -217,3 +229,6 @@ class OptimizationProblem:
 
     def getSolutionSpace(self) -> SolutionSpace:
         return self.solutionSpace
+
+    def getInfrastructure(self) -> Infrastructure:
+        return self.deployedInfr

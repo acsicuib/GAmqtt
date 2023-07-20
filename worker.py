@@ -7,6 +7,7 @@ Created on Mon Oct  3 09:18:45 2022
 """
 import sys
 
+import experimentationConfig
 import optimizationConfig
 
 """
@@ -41,6 +42,9 @@ from optimizationproblem import OptimizationProblem
 from log import Log
 
 
+def nodesDistance(a:int, b:int) -> float:
+    return optProblem.infrastructure4mqttJson['Gdistances'][str(a)][str(b)]
+
 #actions to perform when arrives the message command/nodeX/solutionTemplate	{solutionQuantity: <int>, solutionConfig: <dict>}		coordinator  --> worker(nodeX)
 #this message is recieved as answer of the command to notify to the coordinator that a new worker (this one) is started. Then the coordinator send to new worker the template
 #of the solutions. Once recieved, the worker should start to create its population with random solutions. Once it finished, the worker sends the fitness
@@ -48,12 +52,16 @@ from log import Log
 def initSolutionTemplate(jConf: bytes) -> None:
     log.print(nodeIdStr+":::defining the solution template",'operation')
     global optProblem
+    global simulatedNode
+    global cloudNode
     
     #we retrieve the size of the population and the solution template
     jsonContent = json.loads(jConf)
     numberOfSolutionsInWorkers = jsonContent['solutionQuantity']
     solutionConfig = jsonContent['solutionConfig']
     infrastructure = jsonContent['infrastructure']
+    simulatedNode = jsonContent['simulatedNode']
+    cloudNode = jsonContent['cloudNode']
     randomseed = jsonContent['randomseed']
     
     optProblem = OptimizationProblem(log,randomseed,numberOfSolutionsInWorkers,solutionConfig,infrastructure)
@@ -89,6 +97,8 @@ def removeSolutions(jConf: bytes) -> None:
  
 #actions to perform when arrives the message ccommand/nodeY/sendSolution {solId:<int>, targetNodeId:<str>}         master-->worker(nodeY)
 def sendSolution(jConf: bytes) -> None:
+    global simulatedNode
+
     log.print(nodeIdStr+":::sending the solution to the origin worker",'operation')
     
     #we retrieve {solId:<int>, originNodeId:<str>} 
@@ -101,6 +111,8 @@ def sendSolution(jConf: bytes) -> None:
     dictPayload = dict()
     solChromosome = optProblem.getSolutionChromosomeById(solId,optimizationConfig.selfId4Worker)
     dictPayload['chromosome']=solChromosome
+    dictPayload['senderWorkerId'] = nodeIdStr
+    dictPayload['senderSimulatedNode'] = simulatedNode
     publish.single(topic="solution/"+originId+"", payload=json.dumps(dictPayload), hostname=mqtt_host)
         
     if solChromosome == None:
@@ -118,11 +130,16 @@ def sendSolution(jConf: bytes) -> None:
     
 #actions to perform when arrives the message solution/nodeX  {chromosome: <str>}			worker(nodeY) --> worker(nodeX)
 def solutionRecieved(jConf: bytes) -> None:
+    global simulatedNode
+    global cloudNode
+
     log.print(nodeIdStr+":::we receive the solution from other worker to crossover it",'operation')
 
     #we retrieve {chromosome: <str>}	
     jsonContent = json.loads(jConf)
     solChrom = jsonContent['chromosome']
+    senderWorkerID = jsonContent['senderWorkerId']
+    senderSimulatedNode = jsonContent['senderSimulatedNode']
     
     childrenOffspring = optProblem.evolveWithRemoteSolution(solChrom)
     #Two alternatives possible for the populaiton in the workers. Join the twoNewChildren to the current subpopulation
@@ -136,6 +153,8 @@ def solutionRecieved(jConf: bytes) -> None:
     dictPayload['workerId']=nodeIdStr
     setOfSolutions = optProblem.getSolutionsFitnessInJson(childrenOffspring)
     dictPayload['solutions']=setOfSolutions
+    dictPayload['pathLengthIslands'] = 2*nodesDistance(cloudNode,simulatedNode) #this is the calculated distance for a case where all the solution space (objective and decision) is stored in the coordinator
+    dictPayload['pathLengthCentralizedFront'] = nodesDistance(cloudNode,senderSimulatedNode) + nodesDistance(senderSimulatedNode,simulatedNode) + nodesDistance(simulatedNode, cloudNode) #this is the distance for our proposed semi-distributed with distributed decision space and centralized objective space
 
     publish.single(topic="fitness/"+nodeIdStr+"/newchildren", payload=json.dumps(dictPayload), hostname=mqtt_host)
 
@@ -170,7 +189,8 @@ def process_message(mosq: paho.Client, obj, msg: paho.MQTTMessage) -> None:
 def on_message(mosq: paho.Client, obj, msg: paho.MQTTMessage) -> None:
     proMsg = threading.Thread(target=process_message,args=[mosq, obj, msg])
     proMsg.start()
-    #time.sleep(0.25)
+    if experimentationConfig.time2SleepInWorker > 0.0:
+        time.sleep(experimentationConfig.time2SleepInWorker)
     #mosq.publish('pong', 'ack', 0)
 
 #call back functon when a message is sent

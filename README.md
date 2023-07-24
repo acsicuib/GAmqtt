@@ -165,5 +165,5 @@ python analizeresults.py
 ```
 Usually (set-up by configuration) the results are read from "results" folder and the plots are stored in "plots" folder.  This folder follows the same structure than the "results" folder. Additionally, some plots that aggregate data from all the exeuction repetitions and experiment scenarios are directly stored in the root of folder "results".
 
-Additionally, csv-files are stored with the values of the Pareto fronts for each execution repetition and stored in "pfevaluator" folder. This files can be exported to the pfevaluator project and calculate multi-objective metrics of the results. More information in https://github.com/thieu1995/pfevaluator
+Additionally, csv-files are stored with the values of the Pareto fronts for each execution repetition and stored in "pfevaluator" folder. This files can be exported to the pfevaluator project and calculate multi-objective metrics, such as Generational Distance and Spacing, of the results. More information in https://github.com/thieu1995/pfevaluator
 

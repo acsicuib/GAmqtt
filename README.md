@@ -1,8 +1,7 @@
-This repository includes the source code, the data and the plots for the paper entitled "Distributed Genetic Algorithm for Service Placement in Fog Computing Leveraging Infrastructure Nodes for Optimization", published in the journal "Future Generation Computer Systems":
+This repository includes the source code, the data and the plots for the paper entitled " Distributed genetic algorithm for application placement in the compute continuum leveraging infrastructure nodes for optimization", published in the journal "Future Generation Computer Systems":
 
 ```
-Carlos Guerrero, Isaac Lera, Carlos Juiz, Distributed genetic algorithm for application placement in the compute continuum leveraging infrastructure nodes for optimization,
-Future Generation Computer Systems, Volume 160, 2024, Pages 154-170, ISSN 0167-739X, https://doi.org/10.1016/j.future.2024.05.044.
+Carlos Guerrero, Isaac Lera, Carlos Juiz, Distributed genetic algorithm for application placement in the compute continuum leveraging infrastructure nodes for optimization, Future Generation Computer Systems, Volume 160, 2024, Pages 154-170, ISSN 0167-739X, https://doi.org/10.1016/j.future.2024.05.044.
 ```
 
 If you would consider to cite the paper, you could use this bibtex record:
